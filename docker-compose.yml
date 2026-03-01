@@ -1,0 +1,133 @@
+# ============================================================================
+# DOCKER COMPOSE - AI VALIDATION FRAMEWORK
+# ============================================================================
+# This file defines all services for the AI Validation Framework ecosystem.
+# Run: docker-compose up -d
+# Stop: docker-compose down
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # Main API Service (FastAPI)
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: ai-validation-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./data:/app/data:ro  # Read-only data mount
+      - model-cache:/app/models
+    networks:
+      - ai-validation-network
+    depends_on:
+      - mlflow
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Streamlit Demo Interface
+  # ---------------------------------------------------------------------------
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: streamlit
+    container_name: ai-validation-demo
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./data:/app/data:ro
+    networks:
+      - ai-validation-network
+    depends_on:
+      - api
+      - mlflow
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MLflow Tracking Server
+  # ---------------------------------------------------------------------------
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: mlflow
+    container_name: ai-validation-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/app/mlruns
+    networks:
+      - ai-validation-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Jupyter Notebook (Development)
+  # ---------------------------------------------------------------------------
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: jupyter
+    container_name: ai-validation-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./src:/app/src  # Live code editing
+    networks:
+      - ai-validation-network
+    profiles:
+      - dev  # Only start with: docker-compose --profile dev up
+
+  # ---------------------------------------------------------------------------
+  # Redis (for caching - optional)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ai-validation-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ai-validation-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  ai-validation-network:
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Volumes (persistent storage)
+# ---------------------------------------------------------------------------
+volumes:
+  mlflow-data:
+    driver: local
+  model-cache:
+    driver: local
+  redis-data:
+    driver: local
