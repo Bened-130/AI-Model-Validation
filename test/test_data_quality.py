@@ -1,8 +1,3 @@
-"""
-Unit tests for DataQualityController
-Run with: pytest tests/test_data_quality.py -v
-"""
-
 import pytest
 import pandas as pd
 import numpy as np
