@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  api:
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    environment:
+      - ENVIRONMENT=production
+      - WORKERS=4
+  
+  streamlit:
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  mlflow:
+    environment:
+      - MLFLOW_ARTIFACT_ROOT=s3://your-bucket/mlflow  # Use S3 in production
